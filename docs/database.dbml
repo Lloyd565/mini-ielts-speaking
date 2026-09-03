@@ -1,0 +1,60 @@
+// Mini IELTS Speaking — database schema
+// View/edit at https://dbdiagram.io (paste this file)
+
+Project mini_ielts_speaking {
+  database_type: 'SQLite'
+  Note: 'Laravel 13 API + Vue 3 dashboard for IELTS Speaking practice with Gemini-powered evaluation.'
+}
+
+Table users {
+  id                bigint unsigned [pk, increment]
+  name              varchar(255) [not null]
+  email             varchar(255) [not null, unique]
+  email_verified_at timestamp [null]
+  password          varchar(255) [not null]
+  remember_token    varchar(100) [null]
+  created_at        timestamp
+  updated_at        timestamp
+
+  Note: 'Laravel default users table. Auth is optional (FR-7); attempts may have user_id = NULL.'
+}
+
+Table speaking_questions {
+  id         bigint unsigned [pk, increment]
+  part       enum('part1', 'part2', 'part3') [not null, note: 'IELTS Speaking part']
+  topic      varchar(150) [not null]
+  prompt     text [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table speaking_attempts {
+  id          bigint unsigned [pk, increment]
+  user_id     bigint unsigned [null, ref: > users.id, note: 'NULL when auth is disabled; nullOnDelete']
+  question_id bigint unsigned [not null, ref: > speaking_questions.id]
+  answer_text text [not null]
+  status      enum('pending', 'evaluated', 'failed') [not null, default: 'pending']
+  created_at  timestamp
+  updated_at  timestamp
+
+  indexes {
+    user_id
+    question_id
+    status
+  }
+
+  Note: 'One row per submitted answer. Status always reflects the real evaluation outcome.'
+}
+
+Table speaking_feedbacks {
+  id               bigint unsigned [pk, increment]
+  attempt_id       bigint unsigned [not null, unique, ref: - speaking_attempts.id, note: 'unique = 1:1 with attempts']
+  band_score       decimal(2,1) [not null, note: '0.0–9.0 in 0.5 steps']
+  strengths        json [not null, note: 'array of strings']
+  areas_to_improve json [not null, note: 'array of strings']
+  raw_response     json [null, note: 'raw Gemini payload for debugging/audit']
+  created_at       timestamp
+  updated_at       timestamp
+
+  Note: 'Exactly one feedback per attempt, enforced by the unique constraint on attempt_id.'
+}
