@@ -1,12 +1,20 @@
 <script setup>
 import { ref } from 'vue';
+import api, { token } from './api.js';
 import AttemptDetail from './components/AttemptDetail.vue';
 import AttemptList from './components/AttemptList.vue';
+import AuthForm from './components/AuthForm.vue';
 import SubmitAnswerForm from './components/SubmitAnswerForm.vue';
 
 const activeTab = ref('practice');
 const selectedAttemptId = ref(null);
 const attemptList = ref(null);
+
+function logout() {
+    api.logout();
+    activeTab.value = 'practice';
+    selectedAttemptId.value = null;
+}
 
 function showHistory() {
     activeTab.value = 'history';
@@ -26,8 +34,12 @@ function onSelectAttempt(id) {
 <template>
     <div class="layout">
         <header>
-            <h1>Mini IELTS Speaking</h1>
-            <nav class="tabs">
+            <div class="bar">
+                <h1>Mini IELTS Speaking</h1>
+                <button v-if="token" type="button" class="logout" @click="logout">Log out</button>
+            </div>
+
+            <nav v-if="token" class="tabs">
                 <button
                     type="button"
                     :class="{ active: activeTab === 'practice' }"
@@ -46,7 +58,11 @@ function onSelectAttempt(id) {
         </header>
 
         <main>
-            <SubmitAnswerForm v-if="activeTab === 'practice'" @submitted="onSubmitted" />
+            <AuthForm v-if="!token" />
+
+            <template v-else-if="activeTab === 'practice'">
+                <SubmitAnswerForm @submitted="onSubmitted" />
+            </template>
 
             <template v-else>
                 <AttemptDetail
@@ -74,7 +90,24 @@ body {
 }
 
 header h1 {
-    margin: 0 0 1rem;
+    margin: 0;
+}
+
+.bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.logout {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.875rem;
+    font: inherit;
+    cursor: pointer;
 }
 
 .tabs {

@@ -1,4 +1,20 @@
 import axios from 'axios';
+import { ref } from 'vue';
+
+const TOKEN_KEY = 'ielts_token';
+
+/** Shared auth state: components render off this instead of a store. */
+export const token = ref(localStorage.getItem(TOKEN_KEY));
+
+function setToken(value) {
+    token.value = value;
+
+    if (value) {
+        localStorage.setItem(TOKEN_KEY, value);
+    } else {
+        localStorage.removeItem(TOKEN_KEY);
+    }
+}
 
 const api = axios.create({
     baseURL: '/api',
@@ -7,7 +23,69 @@ const api = axios.create({
     },
 });
 
+api.interceptors.request.use((config) => {
+    if (token.value) {
+        config.headers.Authorization = `Bearer ${token.value}`;
+    }
+
+    return config;
+});
+
+// A revoked or expired token should drop the user back to the login screen.
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            setToken(null);
+        }
+
+        return Promise.reject(error);
+    },
+);
+
 export default {
+    /**
+     * Register a new account and store the returned API token.
+     *
+     * @param {string} name
+     * @param {string} email
+     * @param {string} password
+     * @returns {Promise<object>} response envelope
+     */
+    async register(name, email, password) {
+        const response = await api.post('/auth/register', { name, email, password });
+        setToken(response.data.data.token);
+
+        return response;
+    },
+
+    /**
+     * Log in and store the returned API token.
+     *
+     * @param {string} email
+     * @param {string} password
+     * @returns {Promise<object>} response envelope
+     */
+    async login(email, password) {
+        const response = await api.post('/auth/login', { email, password });
+        setToken(response.data.data.token);
+
+        return response;
+    },
+
+    /**
+     * Revoke the current token server-side and clear it locally.
+     *
+     * @returns {Promise<void>}
+     */
+    async logout() {
+        try {
+            await api.post('/auth/logout');
+        } finally {
+            setToken(null);
+        }
+    },
+
     /**
      * Fetch speaking questions, optionally filtered by part.
      *
