@@ -40,7 +40,7 @@ The system is a monolith: one Laravel application serves both the JSON API (`/ap
 | Backend framework | Laravel 11, PHP 8.2+ | Required by the brief; mature ecosystem, first-class testing tools |
 | Database (dev/test) | SQLite | Zero-setup, file-based — clone and run immediately |
 | Database (optional prod) | MySQL 8 | Drop-in swap via `.env`, no code changes needed |
-| Auth (optional) | Laravel Sanctum | Lightweight token/cookie auth, native Laravel fit for an SPA + API |
+| Auth (implemented, FR-7) | Laravel Sanctum, token-based | Lightweight token auth, native Laravel fit for an SPA + API |
 | AI integration | Google Gemini via Laravel `Http` client | No heavy SDK; trivially mockable with `Http::fake()` |
 | Frontend | Vue 3 (Composition API, `<script setup>`) + Vite | Ships natively with Laravel's Vite scaffolding; no separate frontend server needed |
 | HTTP client (frontend) | Axios | Standard, simple wrapper around fetch with interceptors |
@@ -57,7 +57,7 @@ mini-ielts-speaking/
 │   │   │   ├── SpeakingQuestionController.php
 │   │   │   ├── SpeakingSubmissionController.php
 │   │   │   ├── SpeakingAttemptController.php
-│   │   │   └── AuthController.php                 (optional)
+│   │   │   └── AuthController.php
 │   │   ├── Requests/
 │   │   │   └── SubmitSpeakingAnswerRequest.php
 │   │   └── Resources/
@@ -129,7 +129,7 @@ users (1) ──── (N) speaking_attempts (N) ──── (1) speaking_quest
 | Column | Type | Constraints |
 |---|---|---|
 | id | bigint unsigned | PK, auto-increment |
-| user_id | bigint unsigned | FK → `users.id`, nullable, `nullOnDelete` (nullable so auth can remain optional) |
+| user_id | bigint unsigned | FK → `users.id`, nullable, `nullOnDelete` (nullable so pre-auth rows stay valid; always set for new attempts) |
 | question_id | bigint unsigned | FK → `speaking_questions.id`, not null, `cascadeOnDelete` |
 | answer_text | text | not null |
 | status | enum('pending','evaluated','failed') | not null, default `'pending'` |
@@ -209,7 +209,7 @@ Error:
 
 ### 5.3 `POST /api/speaking/submit`
 
-- **Auth:** none required for the mandatory scope; if optional auth (FR-7) is implemented, `user_id` must be derived from the authenticated user, never from the request body.
+- **Auth:** `auth:sanctum` required. `user_id` is derived from the authenticated user, never from the request body.
 - **Body:**
 ```json
 { "question_id": 3, "answer_text": "In my opinion, technology has changed..." }
@@ -242,7 +242,7 @@ Error:
 
 ### 5.4 `GET /api/speaking/attempts` *(supports FR-5, the dashboard)*
 
-- **Auth:** none required in the mandatory scope; scoped to the authenticated user if FR-7 is implemented.
+- **Auth:** `auth:sanctum` required; scoped to the authenticated user's own attempts.
 - Paginated (`per_page` default 15), eager-loads `question` and `feedback`, ordered by `created_at desc`.
 
 ### 5.5 `GET /api/speaking/attempts/{id}` *(supports FR-5)*
@@ -250,9 +250,9 @@ Error:
 - Returns full detail: question, answer text, status, feedback (if present).
 - Returns a `404` envelope if the attempt does not exist (or does not belong to the authenticated user, when auth is enabled).
 
-### 5.6 Optional auth endpoints (FR-7)
+### 5.6 Auth endpoints (FR-7, implemented)
 
-`POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` — standard Sanctum token issuance. When enabled, `speaking/submit` and `speaking/attempts*` are protected by the `auth:sanctum` middleware.
+`POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` — Sanctum token issuance. `register` and `login` return `data.token`; clients send it as `Authorization: Bearer <token>`. `speaking/submit` and `speaking/attempts*` are protected by the `auth:sanctum` middleware.
 
 ## 6. Service Layer: Gemini Integration
 
@@ -272,7 +272,7 @@ Returns an associative array: `['band_score' => float, 'strengths' => array, 'ar
 - Built on Laravel's `Http` facade, not a third-party SDK.
 - Reads config from `config/services.php` → `services.gemini.*`, sourced from env.
 - Builds a prompt that: (a) includes the question prompt and the user's answer, (b) explicitly instructs Gemini to reply with **only** a JSON object matching a fixed schema (`band_score`, `strengths`, `areas_to_improve`), no prose.
-- Sets an explicit timeout (`GEMINI_TIMEOUT`, default 15s) and a single retry on transient network failure.
+- Sets an explicit timeout (`GEMINI_TIMEOUT`, default 30s) and a single retry on transient network failure.
 - Parses the response defensively: strips ```` ```json ```` fences if present, then `json_decode`s. Any parse failure or missing key throws `EvaluationFailedException`.
 - Never logs the API key. On failure, logs a warning with the HTTP status and a truncated response body for debugging.
 
@@ -289,19 +289,20 @@ Controllers depend on `EvaluationServiceInterface` only — never on the concret
 ```php
 'gemini' => [
     'key'      => env('GEMINI_API_KEY'),
-    'model'    => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+    'model'    => env('GEMINI_MODEL', 'gemini-3.1-flash-lite'),
     'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
-    'timeout'  => env('GEMINI_TIMEOUT', 15),
+    'timeout'  => env('GEMINI_TIMEOUT', 30),
 ],
 ```
 
-## 7. Authentication & Authorization (Optional, FR-7)
+## 7. Authentication & Authorization (FR-7, implemented)
 
 - Laravel Sanctum, token-based (simplest fit for a decoupled Vue dashboard hitting a JSON API).
 - `users` table is Laravel's default.
 - Protected routes grouped under `auth:sanctum` middleware.
 - `speaking_attempts.user_id` is always set server-side from `$request->user()->id` — never accepted from the request payload.
-- If auth is not implemented, `user_id` stays `null` for all attempts and every attempt is globally visible — acceptable for the mandatory scope per the PRD's non-goals.
+- `GET /api/speaking/attempts` returns only the caller's own rows; `GET /api/speaking/attempts/{id}` returns `404` (not `403`) for someone else's attempt, so it never leaks that the row exists.
+- `speaking_attempts.user_id` stays nullable in the schema so pre-auth rows remain valid, but every new attempt is written with the authenticated user's id.
 
 ## 8. Frontend Architecture (Vue Dashboard)
 
@@ -335,9 +336,9 @@ Controllers depend on `EvaluationServiceInterface` only — never on the concret
 | `APP_ENV`, `APP_KEY`, `APP_DEBUG` | Laravel standard | Laravel defaults |
 | `DB_CONNECTION` | `sqlite` for dev/test | `sqlite` |
 | `GEMINI_API_KEY` | Gemini credential | **empty** in `.env.example` |
-| `GEMINI_MODEL` | Model name | `gemini-1.5-flash` |
+| `GEMINI_MODEL` | Model name | `gemini-3.1-flash-lite` |
 | `GEMINI_BASE_URL` | API base URL | official Gemini endpoint |
-| `GEMINI_TIMEOUT` | HTTP timeout (seconds) | `15` |
+| `GEMINI_TIMEOUT` | HTTP timeout (seconds) | `30` |
 | `SANCTUM_STATEFUL_DOMAINS` | Only if FR-7 is implemented | n/a |
 
 `.env` is git-ignored by default in Laravel; `.env.example` ships with every key present but every secret value empty.

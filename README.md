@@ -64,9 +64,9 @@ All keys live in `.env` (git-ignored). `.env.example` ships with every key prese
 | `APP_KEY` | Laravel app key (`php artisan key:generate`) | yes |
 | `DB_CONNECTION` | `sqlite` for local dev/test | yes (default) |
 | `GEMINI_API_KEY` | Google Gemini credential — **never commit this** | only for live evaluations |
-| `GEMINI_MODEL` | Model name | no (default `gemini-1.5-flash`) |
+| `GEMINI_MODEL` | Model name | no (default `gemini-3.1-flash-lite`) |
 | `GEMINI_BASE_URL` | Gemini API base URL | no (default `https://generativelanguage.googleapis.com/v1beta`) |
-| `GEMINI_TIMEOUT` | HTTP timeout in seconds | no (default `15`) |
+| `GEMINI_TIMEOUT` | HTTP timeout in seconds | no (default `30`) |
 
 > Without `GEMINI_API_KEY`, submitting an answer returns a controlled `502` response and the attempt is saved with `status: "failed"`. The dashboard and all other endpoints work fine without a key.
 
@@ -100,7 +100,7 @@ All responses use a standard envelope: `{ "success": bool, "data": ..., "message
 
 See **[docs/database-schema.md](docs/database-schema.md)** (and `docs/database.dbml` for dbdiagram.io).
 
-Three core tables: `speaking_questions` (1) → (N) `speaking_attempts` (1) → (1) `speaking_feedbacks`, with `speaking_attempts.user_id` nullable FK to `users` (auth optional).
+Three core tables: `speaking_questions` (1) → (N) `speaking_attempts` (1) → (1) `speaking_feedbacks`, with `speaking_attempts.user_id` FK to `users` (nullable in the schema; always set server-side for new attempts).
 
 ## Architecture notes
 

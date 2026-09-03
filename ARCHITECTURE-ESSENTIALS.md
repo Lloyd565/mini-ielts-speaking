@@ -12,7 +12,7 @@ Read this first for day-to-day implementation decisions. Fall back to the full `
 | Backend | Laravel 11, PHP 8.2+ |
 | DB (dev/test) | SQLite |
 | DB (optional prod) | MySQL 8 |
-| Auth (optional) | Laravel Sanctum |
+| Auth (implemented, FR-7) | Laravel Sanctum, token-based |
 | AI | Google Gemini via Laravel `Http` client (no SDK) |
 | Frontend | Vue 3 `<script setup>` + Vite, single Blade entry, no router/store needed |
 | HTTP client (frontend) | Axios, wrapped once in `resources/js/api.js` |
@@ -25,7 +25,7 @@ Read this first for day-to-day implementation decisions. Fall back to the full `
 3. **Standard response envelope everywhere** — see below. Every endpoint, success or error, returns this shape.
 4. **Attempt status is always accurate** — `pending → evaluated | failed`. A failed evaluation still leaves a real, visible row; it is never silently dropped.
 5. **Secrets never committed** — `.env` is git-ignored; `.env.example` has every key with an empty secret value. Verify before every commit.
-6. **`user_id` is server-derived** — if auth (FR-7) is on, it comes from `$request->user()->id`, never from the request body.
+6. **`user_id` is server-derived** — it comes from `$request->user()->id`, never from the request body.
 7. **1 feedback per attempt** — enforced at the DB level via a unique constraint on `speaking_feedbacks.attempt_id`.
 8. **Validation lives in Form Requests** — never inline in a controller.
 9. **No premature infrastructure** — no queues, caching layers, or extra services unless a requirement explicitly needs them.
@@ -69,9 +69,9 @@ Error:
 
 ```
 GEMINI_API_KEY=            # empty in .env.example, real value only on developer machine / server
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-3.1-flash-lite
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
-GEMINI_TIMEOUT=15
+GEMINI_TIMEOUT=30
 DB_CONNECTION=sqlite
 ```
 
@@ -91,7 +91,8 @@ php artisan test
 | Method | Path | Auth |
 |---|---|---|
 | GET | `/api/speaking/questions` | none |
-| POST | `/api/speaking/submit` | none (or `auth:sanctum` if FR-7 is built) |
-| GET | `/api/speaking/attempts` | none (or `auth:sanctum`) |
-| GET | `/api/speaking/attempts/{id}` | none (or `auth:sanctum`) |
-| POST | `/api/auth/register` \| `/login` \| `/logout` | optional, FR-7 only |
+| POST | `/api/speaking/submit` | `auth:sanctum` |
+| GET | `/api/speaking/attempts` | `auth:sanctum` (own attempts only) |
+| GET | `/api/speaking/attempts/{id}` | `auth:sanctum` (404 if not the owner) |
+| POST | `/api/auth/register` \| `/login` | none |
+| POST | `/api/auth/logout` | `auth:sanctum` |
