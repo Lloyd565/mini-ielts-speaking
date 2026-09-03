@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\SpeakingQuestion;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -14,14 +15,11 @@ class SpeakingSubmitTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        // Gemini is faked via Http::fake(), but the service still requires a configured key.
         config()->set('services.gemini.key', 'fake-test-key');
     }
 
     /**
      * Build a fake successful Gemini API payload.
-     *
      * @return array<string, mixed>
      */
     private function fakeGeminiSuccessPayload(): array
@@ -47,6 +45,8 @@ class SpeakingSubmitTest extends TestCase
 
     public function test_it_evaluates_an_answer_and_persists_attempt_and_feedback(): void
     {
+        $this->actingAs(User::factory()->create(), 'sanctum');
+
         Http::fake([
             'generativelanguage.googleapis.com/*' => Http::response($this->fakeGeminiSuccessPayload(), 200),
         ]);
@@ -86,6 +86,7 @@ class SpeakingSubmitTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('speaking_attempts', [
+            'user_id' => auth('sanctum')->id(),
             'question_id' => $question->id,
             'answer_text' => $answerText,
             'status' => 'evaluated',
@@ -99,6 +100,8 @@ class SpeakingSubmitTest extends TestCase
 
     public function test_it_rejects_invalid_payloads_without_persisting_anything(): void
     {
+        $this->actingAs(User::factory()->create(), 'sanctum');
+
         Http::fake();
 
         $question = SpeakingQuestion::factory()->create();
@@ -123,6 +126,8 @@ class SpeakingSubmitTest extends TestCase
 
     public function test_it_marks_the_attempt_as_failed_when_gemini_fails(): void
     {
+        $this->actingAs(User::factory()->create(), 'sanctum');
+
         Http::fake([
             'generativelanguage.googleapis.com/*' => Http::response(['error' => 'service unavailable'], 503),
         ]);
@@ -147,5 +152,22 @@ class SpeakingSubmitTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('speaking_feedbacks', 0);
+    }
+
+    public function test_it_rejects_unauthenticated_requests(): void
+    {
+        Http::fake();
+
+        $question = SpeakingQuestion::factory()->create();
+
+        $this->postJson('/api/speaking/submit', [
+            'question_id' => $question->id,
+            'answer_text' => 'This is a perfectly valid answer that is long enough to pass validation.',
+        ])
+            ->assertUnauthorized()
+            ->assertJson(['success' => false, 'message' => 'Unauthenticated.']);
+
+        $this->assertDatabaseCount('speaking_attempts', 0);
+        Http::assertNothingSent();
     }
 }

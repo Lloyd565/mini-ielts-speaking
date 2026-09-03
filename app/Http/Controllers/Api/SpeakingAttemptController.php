@@ -25,6 +25,7 @@ class SpeakingAttemptController extends Controller
     public function index(Request $request): JsonResponse
     {
         $attempts = SpeakingAttempt::query()
+            ->where('user_id', $request->user()->id)
             ->with(['question', 'feedback'])
             ->latest()
             ->paginate($request->integer('per_page', 15));
@@ -43,8 +44,10 @@ class SpeakingAttemptController extends Controller
     /**
      * Display the full detail of a single attempt.
      */
-    public function show(SpeakingAttempt $attempt): JsonResponse
+    public function show(Request $request, SpeakingAttempt $attempt): JsonResponse
     {
+        abort_unless($attempt->user_id === $request->user()->id, 404);
+
         $attempt->load(['question', 'feedback']);
 
         return response()->json([
@@ -62,8 +65,8 @@ class SpeakingAttemptController extends Controller
         $question = SpeakingQuestion::findOrFail($request->validated('question_id'));
 
         $attempt = SpeakingAttempt::create([
-            // Auth is optional (FR-7); always server-derived, never from the payload.
-            'user_id' => $request->user()?->id,
+            // Always server-derived from the authenticated user, never from the payload.
+            'user_id' => $request->user()->id,
             'question_id' => $question->id,
             'answer_text' => $request->validated('answer_text'),
             'status' => 'pending',

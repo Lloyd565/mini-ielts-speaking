@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\SpeakingAttempt;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -10,13 +11,21 @@ class SpeakingAttemptsTest extends TestCase
 {
     use RefreshDatabase;
 
-    /**
-     * Create an attempt with feedback attached.
-     */
+    private User $user;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->user = User::factory()->create();
+    }
+
+    
+     //Create attempt, owned by the auth user
     private function createEvaluatedAttempt(array $attemptAttributes = []): SpeakingAttempt
     {
         $attempt = SpeakingAttempt::factory()->create(array_merge(
-            ['status' => 'evaluated'],
+            ['user_id' => $this->user->id, 'status' => 'evaluated'],
             $attemptAttributes,
         ));
 
@@ -31,9 +40,11 @@ class SpeakingAttemptsTest extends TestCase
 
     public function test_it_returns_a_paginated_list_of_attempts_with_question_and_feedback(): void
     {
+        $this->actingAs($this->user, 'sanctum');
+
         $this->createEvaluatedAttempt();
         $this->createEvaluatedAttempt();
-        $failedAttempt = SpeakingAttempt::factory()->create(['status' => 'failed']);
+        $failedAttempt = SpeakingAttempt::factory()->create(['user_id' => $this->user->id, 'status' => 'failed']);
 
         $response = $this->getJson('/api/speaking/attempts');
 
@@ -58,7 +69,7 @@ class SpeakingAttemptsTest extends TestCase
             ->assertJsonPath('meta.total', 3)
             ->assertJsonPath('meta.per_page', 15);
 
-        // Evaluated attempts carry full feedback; failed ones expose null.
+        // Evaluated attempts carry feedback
         $evaluated = collect($response->json('data'))->firstWhere('status', 'evaluated');
         $this->assertArrayHasKey('band_score', $evaluated['feedback']);
         $this->assertArrayHasKey('strengths', $evaluated['feedback']);
@@ -70,6 +81,8 @@ class SpeakingAttemptsTest extends TestCase
 
     public function test_it_orders_attempts_newest_first_and_supports_per_page(): void
     {
+        $this->actingAs($this->user, 'sanctum');
+
         $oldest = $this->createEvaluatedAttempt(['created_at' => now()->subDays(2)]);
         $newest = $this->createEvaluatedAttempt(['created_at' => now()]);
 
@@ -87,6 +100,8 @@ class SpeakingAttemptsTest extends TestCase
 
     public function test_it_returns_the_full_detail_of_a_single_attempt(): void
     {
+        $this->actingAs($this->user, 'sanctum');
+
         $attempt = $this->createEvaluatedAttempt();
 
         $response = $this->getJson("/api/speaking/attempts/{$attempt->id}");
@@ -119,6 +134,8 @@ class SpeakingAttemptsTest extends TestCase
 
     public function test_it_returns_a_404_envelope_for_a_missing_attempt(): void
     {
+        $this->actingAs($this->user, 'sanctum');
+
         $response = $this->getJson('/api/speaking/attempts/999');
 
         $response
@@ -127,5 +144,26 @@ class SpeakingAttemptsTest extends TestCase
                 'success' => false,
                 'message' => 'Resource not found.',
             ]);
+    }
+
+    public function test_it_does_not_return_another_users_attempts(): void
+    {
+        $this->actingAs($this->user, 'sanctum');
+
+        $otherUsersAttempt = SpeakingAttempt::factory()->create(['user_id' => User::factory()->create()->id]);
+        $this->createEvaluatedAttempt();
+
+        $listResponse = $this->getJson('/api/speaking/attempts');
+        $listResponse->assertOk()->assertJsonCount(1, 'data');
+
+        $showResponse = $this->getJson("/api/speaking/attempts/{$otherUsersAttempt->id}");
+        $showResponse->assertNotFound();
+    }
+
+    public function test_it_rejects_unauthenticated_requests(): void
+    {
+        $this->getJson('/api/speaking/attempts')
+            ->assertUnauthorized()
+            ->assertJson(['success' => false, 'message' => 'Unauthenticated.']);
     }
 }
