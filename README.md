@@ -1,58 +1,110 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Mini IELTS Speaking
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A small full-stack app to practice IELTS Speaking in text form and receive AI-generated feedback (estimated band score, strengths, areas to improve) powered by Google Gemini.
 
-## About Laravel
+- **Backend:** Laravel 13 (PHP 8.4), SQLite
+- **AI:** Google Gemini via Laravel's `Http` client, isolated behind a service interface
+- **Frontend:** Vue 3 (`<script setup>`) + Vite, served from a single Blade entry — no separate frontend server
+- **Testing:** PHPUnit, `Http::fake()` for all Gemini calls (the suite runs fully offline)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- Browse IELTS Speaking practice questions (Parts 1–3), filterable by part
+- Submit a written answer and get an evaluation in one request
+- Dashboard with a Practice tab and a History tab (list + full detail per attempt)
+- Attempt status always accurate (`pending → evaluated | failed`); a failed evaluation still leaves a visible row
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Requirements
 
-## Learning Laravel
+- PHP 8.4 + Composer
+- Node.js 20.19+ and npm
+- A Google Gemini API key (only needed for live evaluations — not for tests)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Setup
 
 ```bash
-composer require laravel/boost --dev
+# 1. Install dependencies
+composer install
+npm install
 
-php artisan boost:install
+# 2. Configure environment
+cp .env.example .env
+php artisan key:generate
+
+# 3. Create the SQLite database
+touch database/database.sqlite
+
+# 4. Migrate and seed sample questions
+php artisan migrate --seed
+
+# 5. Add your Gemini API key to .env (see Environment variables below)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Run
 
-## Contributing
+```bash
+composer run dev
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+This starts Laravel (`http://localhost:8000`) and Vite together. Open **http://localhost:8000** in your browser.
 
-## Code of Conduct
+Alternatively, run them separately in two terminals:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan serve   # http://localhost:8000
+npm run dev         # Vite dev server (hot reload)
+```
 
-## Security Vulnerabilities
+## Environment variables
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+All keys live in `.env` (git-ignored). `.env.example` ships with every key present and every secret value **empty**.
 
-## License
+| Variable | Purpose | Required |
+|---|---|---|
+| `APP_KEY` | Laravel app key (`php artisan key:generate`) | yes |
+| `DB_CONNECTION` | `sqlite` for local dev/test | yes (default) |
+| `GEMINI_API_KEY` | Google Gemini credential — **never commit this** | only for live evaluations |
+| `GEMINI_MODEL` | Model name | no (default `gemini-1.5-flash`) |
+| `GEMINI_BASE_URL` | Gemini API base URL | no (default `https://generativelanguage.googleapis.com/v1beta`) |
+| `GEMINI_TIMEOUT` | HTTP timeout in seconds | no (default `15`) |
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+> Without `GEMINI_API_KEY`, submitting an answer returns a controlled `502` response and the attempt is saved with `status: "failed"`. The dashboard and all other endpoints work fine without a key.
+
+## Tests
+
+```bash
+php artisan test
+```
+
+The full suite runs **offline**: every Gemini call is faked with `Http::fake()`, so no API key or network access is needed. Tests use an in-memory SQLite database.
+
+## API
+
+See **[docs/api-docs.md](docs/api-docs.md)** for example requests/responses for every endpoint.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/register` | none | Register and receive an API token |
+| `POST` | `/api/auth/login` | none | Log in and receive an API token |
+| `POST` | `/api/auth/logout` | required | Revoke the current token |
+| `GET` | `/api/speaking/questions` | none | List questions (optional `?part=part1\|part2\|part3`) |
+| `POST` | `/api/speaking/submit` | required | Submit an answer, receive evaluation |
+| `GET` | `/api/speaking/attempts` | required | Paginated attempt history (own attempts only) |
+| `GET` | `/api/speaking/attempts/{id}` | required | Attempt detail with feedback (own attempts only) |
+
+Authenticated requests use `Authorization: Bearer <token>` (Laravel Sanctum API tokens).
+
+All responses use a standard envelope: `{ "success": bool, "data": ..., "message": "..." }` (errors: `{ "success": false, "message": "...", "errors": {...} }`).
+
+## Database schema
+
+See **[docs/database-schema.md](docs/database-schema.md)** (and `docs/database.dbml` for dbdiagram.io).
+
+Three core tables: `speaking_questions` (1) → (N) `speaking_attempts` (1) → (1) `speaking_feedbacks`, with `speaking_attempts.user_id` nullable FK to `users` (auth optional).
+
+## Architecture notes
+
+- All Gemini access goes through `App\Services\Contracts\EvaluationServiceInterface` → `GeminiEvaluationService`; controllers never call Gemini directly.
+- All validation lives in Form Request classes (`app/Http/Requests`).
+- Errors on `/api/*` never leak framework internals — validation, 404, and evaluation failures all return the standard error envelope.
+- `POST /api/speaking/submit` is rate-limited (10/min) to avoid abusive/expensive Gemini calls.

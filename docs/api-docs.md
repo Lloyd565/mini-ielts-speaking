@@ -37,6 +37,51 @@ Every endpoint returns a standard envelope.
 
 ---
 
+## `POST /api/auth/register`
+
+Register a new user and return an API token.
+
+**Auth:** none.
+
+**Body:** `name` (string, required), `email` (string, required, unique), `password` (string, required, min 8).
+
+**Response `201`:**
+```json
+{ "success": true, "data": { "token": "1|abcdef..." }, "message": "Registered successfully." }
+```
+
+---
+
+## `POST /api/auth/login`
+
+Authenticate with email/password and return an API token.
+
+**Auth:** none.
+
+**Body:** `email` (string, required), `password` (string, required).
+
+**Response `200`:**
+```json
+{ "success": true, "data": { "token": "2|abcdef..." }, "message": "Logged in successfully." }
+```
+
+**Response `422`** on incorrect credentials.
+
+---
+
+## `POST /api/auth/logout`
+
+Revoke the token used to authenticate the request.
+
+**Auth:** required (`Authorization: Bearer <token>`).
+
+**Response `200`:**
+```json
+{ "success": true, "data": [], "message": "Logged out successfully." }
+```
+
+---
+
 ## `GET /api/speaking/questions`
 
 List speaking questions, optionally filtered by part.
@@ -93,7 +138,7 @@ GET /api/speaking/questions?part=part2
 
 Submit an answer and receive an AI-generated evaluation in the same response.
 
-**Auth:** none (if FR-7 auth is implemented, `user_id` is derived server-side from the authenticated user — never from the request body).
+**Auth:** required (`Authorization: Bearer <token>`). `user_id` is derived server-side from the authenticated user — never from the request body.
 
 **Rate limit:** 10 requests/minute per user/IP (`speaking-submit` limiter).
 
@@ -175,7 +220,7 @@ Content-Type: application/json
 
 Paginated list of past attempts, newest first, with `question` and `feedback` eager-loaded.
 
-**Auth:** none (scoped to the authenticated user when FR-7 is implemented).
+**Auth:** required (`Authorization: Bearer <token>`). Only the authenticated user's own attempts are returned.
 
 **Query parameters:**
 
@@ -241,7 +286,7 @@ GET /api/speaking/attempts?per_page=2
 
 Full detail of a single attempt: question, answer text, status, and feedback (if present).
 
-**Auth:** none (or the owner only, when FR-7 is implemented).
+**Auth:** required (`Authorization: Bearer <token>`). Returns `404` if the attempt belongs to another user.
 
 **Example request:**
 ```http
