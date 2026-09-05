@@ -20,6 +20,7 @@ class SpeakingSubmitTest extends TestCase
 
     /**
      * Build a fake successful Gemini API payload.
+     *
      * @return array<string, mixed>
      */
     private function fakeGeminiSuccessPayload(): array

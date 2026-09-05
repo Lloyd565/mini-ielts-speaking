@@ -37,7 +37,7 @@ touch database/database.sqlite
 # 4. Migrate and seed sample questions
 php artisan migrate --seed
 
-# 5. Add your Gemini API key to .env (see Environment variables below)
+# 5. Add Gemini API key to .env
 ```
 
 ## Run
@@ -51,8 +51,8 @@ This starts Laravel (`http://localhost:8000`) and Vite together. Open **http://l
 Alternatively, run them separately in two terminals:
 
 ```bash
-php artisan serve   # http://localhost:8000
-npm run dev         # Vite dev server (hot reload)
+php artisan serve
+npm run dev
 ```
 
 ## Environment variables
