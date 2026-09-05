@@ -1,5 +1,5 @@
 // Mini IELTS Speaking — database schema
-// View/edit at https://dbdiagram.io (paste this file)
+// View/edit at https://dbdiagram.io
 
 Project mini_ielts_speaking {
   database_type: 'SQLite'
@@ -7,12 +7,12 @@ Project mini_ielts_speaking {
 }
 
 Table users {
-  id                bigint unsigned [pk, increment]
+  id                bigint [pk, increment]
   name              varchar(255) [not null]
   email             varchar(255) [not null, unique]
-  email_verified_at timestamp [null]
+  email_verified_at timestamp
   password          varchar(255) [not null]
-  remember_token    varchar(100) [null]
+  remember_token    varchar(100)
   created_at        timestamp
   updated_at        timestamp
 
@@ -20,8 +20,8 @@ Table users {
 }
 
 Table speaking_questions {
-  id         bigint unsigned [pk, increment]
-  part       enum('part1', 'part2', 'part3') [not null, note: 'IELTS Speaking part']
+  id         bigint [pk, increment]
+  part       varchar(10) [not null, note: 'part1, part2, or part3']
   topic      varchar(150) [not null]
   prompt     text [not null]
   created_at timestamp
@@ -29,11 +29,11 @@ Table speaking_questions {
 }
 
 Table speaking_attempts {
-  id          bigint unsigned [pk, increment]
-  user_id     bigint unsigned [null, ref: > users.id, note: 'NULL when auth is disabled; nullOnDelete']
-  question_id bigint unsigned [not null, ref: > speaking_questions.id]
+  id          bigint [pk, increment]
+  user_id     bigint
+  question_id bigint [not null]
   answer_text text [not null]
-  status      enum('pending', 'evaluated', 'failed') [not null, default: 'pending']
+  status      varchar(10) [not null, default: 'pending', note: 'pending, evaluated, or failed']
   created_at  timestamp
   updated_at  timestamp
 
@@ -43,18 +43,23 @@ Table speaking_attempts {
     status
   }
 
-  Note: 'One row per submitted answer. Status always reflects the real evaluation outcome.'
+  Note: 'One row per submitted answer. user_id is nullable when auth is disabled. Status always reflects the real evaluation outcome.'
 }
 
 Table speaking_feedbacks {
-  id               bigint unsigned [pk, increment]
-  attempt_id       bigint unsigned [not null, unique, ref: - speaking_attempts.id, note: 'unique = 1:1 with attempts']
+  id               bigint [pk, increment]
+  attempt_id       bigint [not null, unique]
   band_score       decimal(2,1) [not null, note: '0.0–9.0 in 0.5 steps']
   strengths        json [not null, note: 'array of strings']
   areas_to_improve json [not null, note: 'array of strings']
-  raw_response     json [null, note: 'raw Gemini payload for debugging/audit']
+  raw_response     json
   created_at       timestamp
   updated_at       timestamp
 
   Note: 'Exactly one feedback per attempt, enforced by the unique constraint on attempt_id.'
 }
+
+// Foreign keys
+Ref: speaking_attempts.user_id > users.id
+Ref: speaking_attempts.question_id > speaking_questions.id
+Ref: speaking_feedbacks.attempt_id - speaking_attempts.id
