@@ -67,6 +67,7 @@ All keys live in `.env` (git-ignored). `.env.example` ships with every key prese
 | `GEMINI_MODEL` | Model name | no (default `gemini-3.1-flash-lite`) |
 | `GEMINI_BASE_URL` | Gemini API base URL | no (default `https://generativelanguage.googleapis.com/v1beta`) |
 | `GEMINI_TIMEOUT` | HTTP timeout in seconds | no (default `30`) |
+| `SANCTUM_TOKEN_EXPIRATION` | API token lifetime in minutes | no (default `10080` — 7 days) |
 
 > Without `GEMINI_API_KEY`, submitting an answer returns a controlled `502` response and the attempt is saved with `status: "failed"`. The dashboard and all other endpoints work fine without a key.
 
