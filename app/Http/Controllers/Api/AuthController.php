@@ -39,13 +39,20 @@ class AuthController extends Controller
     {
         $user = User::where('email', $request->validated('email'))->first();
 
-        if (! $user || ! Hash::check($request->validated('password'), $user->password)) {
+        $passwordMatches = Hash::check(
+            $request->validated('password'),
+            $user?->password ?? Hash::make('timing-equaliser'),
+        );
+
+        if (! $user || ! $passwordMatches) {
             return response()->json([
                 'success' => false,
                 'message' => 'The given credentials are incorrect.',
                 'errors' => ['email' => ['The given credentials are incorrect.']],
             ], 422);
         }
+
+        $user->tokens()->delete();
 
         return response()->json([
             'success' => true,
