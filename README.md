@@ -101,6 +101,9 @@ All responses use a standard envelope: `{ "success": bool, "data": ..., "message
 
 See **[docs/database-schema.md](docs/database-schema.md)** (and `docs/database.dbml` for dbdiagram.io).
 
+![alt text](image.png)
+
+
 Three core tables: `speaking_questions` (1) → (N) `speaking_attempts` (1) → (1) `speaking_feedbacks`, with `speaking_attempts.user_id` FK to `users` (nullable in the schema; always set server-side for new attempts).
 
 ## Deployment
@@ -113,8 +116,6 @@ This project is not deployed as part of the assessment. For the record, deployin
 4. Run `php artisan migrate --force --seed`, then `php artisan config:cache route:cache view:cache`.
 5. Build the frontend with `npm ci && npm run build` (locally or on the server) and deploy `public/build`.
 6. Make `storage/` and `bootstrap/cache/` writable by the web server user, and serve over HTTPS.
-
-> Reviewer note: replace this section with your own account of a Laravel project you have deployed to a VPS or shared hosting (FR-9).
 
 ## Architecture notes
 
