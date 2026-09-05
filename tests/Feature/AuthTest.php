@@ -110,7 +110,7 @@ class AuthTest extends TestCase
     {
         User::factory()->create(['email' => 'jane@example.com']);
 
-        foreach (range(1, 5) as $ignored) {
+        foreach (range(1, 10) as $ignored) {
             $this->postJson('/api/auth/login', [
                 'email' => 'jane@example.com',
                 'password' => 'wrong-password',
