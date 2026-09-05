@@ -43,7 +43,7 @@ Exceeding a limit returns `429` in the error envelope.
 
 | Endpoint | Limit |
 |---|---|
-| `POST /api/auth/register`, `POST /api/auth/login` | 5/min per IP |
+| `POST /api/auth/register`, `POST /api/auth/login` | 10/min per IP |
 | `GET /api/speaking/questions` | 60/min per IP |
 | `POST /api/speaking/submit` | 10/min per user |
 

@@ -122,4 +122,4 @@ This project is not deployed as part of the assessment. For the record, deployin
 - All Gemini access goes through `App\Services\Contracts\EvaluationServiceInterface` → `GeminiEvaluationService`; controllers never call Gemini directly.
 - All validation lives in Form Request classes (`app/Http/Requests`).
 - Errors on `/api/*` never leak framework internals — validation, 404, 401, evaluation failures, and any unexpected exception all return the standard error envelope, even with `APP_DEBUG=true`.
-- Rate limits: `POST /api/speaking/submit` 10/min (abusive/expensive Gemini calls), `/api/auth/{register,login}` 5/min, `GET /api/speaking/questions` 60/min.
+- Rate limits: `POST /api/speaking/submit` 10/min (abusive/expensive Gemini calls), `/api/auth/{register,login}` 10/min, `GET /api/speaking/questions` 60/min.
