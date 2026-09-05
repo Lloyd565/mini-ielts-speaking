@@ -35,6 +35,18 @@ Every endpoint returns a standard envelope.
 
 `errors` is present only on validation failures (`422`); other errors may omit it.
 
+Unexpected server errors return `500` with a generic message (`"Something went wrong. Please try again later."`) — internals are never exposed, even with `APP_DEBUG=true`.
+
+## Rate limits
+
+Exceeding a limit returns `429` in the error envelope.
+
+| Endpoint | Limit |
+|---|---|
+| `POST /api/auth/register`, `POST /api/auth/login` | 5/min per IP |
+| `GET /api/speaking/questions` | 60/min per IP |
+| `POST /api/speaking/submit` | 10/min per user |
+
 ---
 
 ## `POST /api/auth/register`
@@ -227,7 +239,7 @@ Paginated list of past attempts, newest first, with `question` and `feedback` ea
 | Param | Type | Description |
 |---|---|---|
 | `page` | integer | Optional, default `1`. |
-| `per_page` | integer | Optional, default `15`. |
+| `per_page` | integer | Optional, default `15`, capped at `100`. |
 
 **Example request:**
 ```http

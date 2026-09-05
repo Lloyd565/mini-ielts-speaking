@@ -102,9 +102,22 @@ See **[docs/database-schema.md](docs/database-schema.md)** (and `docs/database.d
 
 Three core tables: `speaking_questions` (1) → (N) `speaking_attempts` (1) → (1) `speaking_feedbacks`, with `speaking_attempts.user_id` FK to `users` (nullable in the schema; always set server-side for new attempts).
 
+## Deployment
+
+This project is not deployed as part of the assessment. For the record, deploying it to a VPS or shared hosting follows the usual Laravel routine:
+
+1. Clone the repo on the server and run `composer install --no-dev --optimize-autoloader`.
+2. Copy `.env`, set `APP_ENV=production`, `APP_DEBUG=false`, and a real `GEMINI_API_KEY`; run `php artisan key:generate`.
+3. Point the web server's document root at `public/` (on shared hosting, symlink or copy `public/` into `public_html`).
+4. Run `php artisan migrate --force --seed`, then `php artisan config:cache route:cache view:cache`.
+5. Build the frontend with `npm ci && npm run build` (locally or on the server) and deploy `public/build`.
+6. Make `storage/` and `bootstrap/cache/` writable by the web server user, and serve over HTTPS.
+
+> Reviewer note: replace this section with your own account of a Laravel project you have deployed to a VPS or shared hosting (FR-9).
+
 ## Architecture notes
 
 - All Gemini access goes through `App\Services\Contracts\EvaluationServiceInterface` → `GeminiEvaluationService`; controllers never call Gemini directly.
 - All validation lives in Form Request classes (`app/Http/Requests`).
-- Errors on `/api/*` never leak framework internals — validation, 404, and evaluation failures all return the standard error envelope.
-- `POST /api/speaking/submit` is rate-limited (10/min) to avoid abusive/expensive Gemini calls.
+- Errors on `/api/*` never leak framework internals — validation, 404, 401, evaluation failures, and any unexpected exception all return the standard error envelope, even with `APP_DEBUG=true`.
+- Rate limits: `POST /api/speaking/submit` 10/min (abusive/expensive Gemini calls), `/api/auth/{register,login}` 5/min, `GET /api/speaking/questions` 60/min.
