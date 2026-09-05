@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\Contracts\EvaluationServiceInterface;
+use App\Services\FakeEvaluationService;
 use App\Services\GeminiEvaluationService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -16,7 +17,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(EvaluationServiceInterface::class, GeminiEvaluationService::class);
+        $this->app->bind(EvaluationServiceInterface::class, function () {
+            // No key locally? Serve canned feedback instead of failing every submit.
+            return config('services.gemini.key')
+                ? new GeminiEvaluationService
+                : new FakeEvaluationService;
+        });
     }
 
     /**
