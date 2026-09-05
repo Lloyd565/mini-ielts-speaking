@@ -57,7 +57,7 @@ function onSelectAttempt(id) {
             </nav>
         </header>
 
-        <main>
+        <main :class="{ centered: !token }">
             <AuthForm v-if="!token" />
 
             <template v-else-if="activeTab === 'practice'">
@@ -87,6 +87,12 @@ body {
     max-width: 56rem;
     margin: 0 auto;
     padding: 2rem 1rem;
+}
+
+main.centered {
+    display: grid;
+    place-items: center;
+    min-height: calc(100vh - 8rem);
 }
 
 header h1 {
