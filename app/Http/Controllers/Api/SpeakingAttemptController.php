@@ -28,7 +28,7 @@ class SpeakingAttemptController extends Controller
             ->where('user_id', $request->user()->id)
             ->with(['question', 'feedback'])
             ->latest()
-            ->paginate($request->integer('per_page', 15));
+            ->paginate(min($request->integer('per_page', 15), 100));
 
         return response()->json([
             'success' => true,

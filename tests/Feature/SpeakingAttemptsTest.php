@@ -20,8 +20,7 @@ class SpeakingAttemptsTest extends TestCase
         $this->user = User::factory()->create();
     }
 
-    
-     //Create attempt, owned by the auth user
+    // Create attempt, owned by the auth user
     private function createEvaluatedAttempt(array $attemptAttributes = []): SpeakingAttempt
     {
         $attempt = SpeakingAttempt::factory()->create(array_merge(
@@ -96,6 +95,15 @@ class SpeakingAttemptsTest extends TestCase
             ->assertJsonPath('meta.per_page', 1);
 
         $this->assertNotSame($oldest->id, $response->json('data.0.id'));
+    }
+
+    public function test_it_caps_the_requested_page_size(): void
+    {
+        $this->actingAs($this->user, 'sanctum');
+
+        $this->getJson('/api/speaking/attempts?per_page=999999')
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 100);
     }
 
     public function test_it_returns_the_full_detail_of_a_single_attempt(): void
