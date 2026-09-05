@@ -9,7 +9,7 @@ Route::post('/auth/register', [AuthController::class, 'register'])->middleware('
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
-Route::get('/speaking/questions', [SpeakingQuestionController::class, 'index']);
+Route::get('/speaking/questions', [SpeakingQuestionController::class, 'index'])->middleware('throttle:60,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/speaking/submit', [SpeakingAttemptController::class, 'store'])->middleware('throttle:speaking-submit');
