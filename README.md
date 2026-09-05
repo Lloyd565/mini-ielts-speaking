@@ -63,7 +63,7 @@ All keys live in `.env` (git-ignored). `.env.example` ships with every key prese
 |---|---|---|
 | `APP_KEY` | Laravel app key (`php artisan key:generate`) | yes |
 | `DB_CONNECTION` | `sqlite` for local dev/test | yes (default) |
-| `GEMINI_API_KEY` | Google Gemini credential — **never commit this** | only for live evaluations |
+| `GEMINI_API_KEY` | Google Gemini credential| only for live evaluations |
 | `GEMINI_MODEL` | Model name | no (default `gemini-3.1-flash-lite`) |
 | `GEMINI_BASE_URL` | Gemini API base URL | no (default `https://generativelanguage.googleapis.com/v1beta`) |
 | `GEMINI_TIMEOUT` | HTTP timeout in seconds | no (default `30`) |
