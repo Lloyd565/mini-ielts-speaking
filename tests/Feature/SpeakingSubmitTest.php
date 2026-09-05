@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\SpeakingQuestion;
 use App\Models\User;
+use App\Services\Contracts\EvaluationServiceInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 use Tests\TestCase;
 
 class SpeakingSubmitTest extends TestCase
@@ -153,6 +155,35 @@ class SpeakingSubmitTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('speaking_feedbacks', 0);
+    }
+
+    public function test_it_hides_framework_internals_when_an_unexpected_error_occurs(): void
+    {
+        $this->actingAs(User::factory()->create(), 'sanctum');
+
+        $this->app->bind(EvaluationServiceInterface::class, fn () => new class implements EvaluationServiceInterface
+        {
+            public function evaluate(SpeakingQuestion $question, string $answerText): array
+            {
+                throw new RuntimeException('internal detail that must not leak');
+            }
+        });
+
+        $question = SpeakingQuestion::factory()->create();
+
+        $response = $this->postJson('/api/speaking/submit', [
+            'question_id' => $question->id,
+            'answer_text' => 'This is a perfectly valid answer that is long enough to pass validation.',
+        ]);
+
+        $response
+            ->assertStatus(500)
+            ->assertExactJson([
+                'success' => false,
+                'message' => 'Something went wrong. Please try again later.',
+            ]);
+
+        $this->assertStringNotContainsString('internal detail', $response->getContent());
     }
 
     public function test_it_rejects_unauthenticated_requests(): void
